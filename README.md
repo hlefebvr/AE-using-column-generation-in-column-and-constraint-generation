@@ -5,7 +5,7 @@
 ![Repo status](https://www.repostatus.org/badges/latest/active.svg)
 
 This repository contains the code and data used for the paper 
-[Lefebvre, H., Schmidt, M., and Thürauf, J. (2023) "Using Column Generation in Column-and-Constraint Generation for Adjustable Robust Optimization"](https://optimization-online.org/XXXXXXXXX).
+[Lefebvre, H., Schmidt, M., and Thürauf, J. (2023) "Using Column Generation in Column-and-Constraint Generation for Adjustable Robust Optimization"](https://optimization-online.org/?p=24462).
 
 ## How to cite
 
@@ -16,7 +16,7 @@ If you are using this repository for your research, please cite our preprint.
   title={Using Column Generation in Column-and-Constraint Generation for Adjustable Robust Optimization},
   author={Henri Lefebvre and Martin Schmidt and Johannes Thürauf},
   year={2023},
-  url = {https://optimization-online.org/XXXXXXXXX}
+  url = {https://optimization-online.org/?p=24462}
 }
 ```
 
