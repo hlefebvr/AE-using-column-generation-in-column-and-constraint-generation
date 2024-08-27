@@ -12,6 +12,7 @@
 #include "idol/optimizers/mixed-integer-optimization/callbacks/cutting-planes/LazyCutCallback.h"
 #include "idol/optimizers/mixed-integer-optimization/callbacks/cutting-planes/KnapsackCover.h"
 #include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/infeasibility-strategies/FarkasPricing.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/infeasibility-strategies/ArtificialCosts.h"
 #include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/stabilization/Neame.h"
 #include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/logs/Info.h"
 
