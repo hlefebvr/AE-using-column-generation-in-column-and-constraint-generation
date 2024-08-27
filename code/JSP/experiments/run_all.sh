@@ -19,7 +19,7 @@ do
   for GAMMA in 5 7 9
   do
 
-    for STD_PHASE_TIME_LIMIT in 7200 120 60
+    for STD_PHASE_TIME_LIMIT in 0 10800 # 120 60
     do
 
       for WITH_HEURISTIC in false true
@@ -41,14 +41,14 @@ do
 
           COUNTER=$(($COUNTER+1))
 
-          if [ $STD_PHASE_TIME_LIMIT -eq 7200 ]
+          if [ $STD_PHASE_TIME_LIMIT -eq 10800 ]
           then
             break
           fi
 
         done
 
-        if [ $STD_PHASE_TIME_LIMIT -eq 7200 ]
+        if [ $STD_PHASE_TIME_LIMIT -eq 10800 ]
         then
           break
         fi

@@ -67,7 +67,5 @@ int main(int t_argc, char** t_argv) {
               << problem.Gamma() << ','
               << std::endl;
 
-    // Root::run();
-
     return 0;
 }

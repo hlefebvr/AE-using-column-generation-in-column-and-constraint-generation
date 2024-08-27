@@ -5,7 +5,7 @@
 #ifndef CCG_WITH_NESTED_CG_INSTANCE_H
 #define CCG_WITH_NESTED_CG_INSTANCE_H
 
-#include "problems/facility-location-problem/FLP_Instance.h"
+#include "idol/problems/facility-location-problem/FLP_Instance.h"
 #include <cmath>
 
 class Instance : public idol::Problems::FLP::Instance {

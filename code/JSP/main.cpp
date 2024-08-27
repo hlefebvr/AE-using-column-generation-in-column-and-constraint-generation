@@ -3,7 +3,7 @@
 //
 #include <iostream>
 #include "Instance.h"
-#include "errors/Exception.h"
+#include "idol/errors/Exception.h"
 #include "JobSchedulingProblem.h"
 #include "../algorithms/ColumnAndConstraintGeneration.h"
 
@@ -19,7 +19,6 @@ int main(int t_argc, const char** t_argv) {
     const double std_phase_time_limit = std::stof(t_argv[2]);
     const double Gamma = std::stof(t_argv[3]);
     const bool with_heuristic = std::string_view (t_argv[4]) == "true";
-    const bool with_non_optimal_pricing = std::string_view (t_argv[5]) == "true";
 
     auto instance = Instance::from_file(filename);
 
@@ -33,12 +32,9 @@ int main(int t_argc, const char** t_argv) {
 
     problem.use_heuristic(with_heuristic);
 
-    problem.use_non_optimal_pricing(with_non_optimal_pricing);
-
     ccg.solve(std_phase_time_limit, filename.substr(filename.find_last_of('/') + 1));
 
     std::cout << with_heuristic << ','
-              << with_non_optimal_pricing << ','
               << instance.n_jobs() << ','
               << problem.Gamma() << ','
               << std::endl;

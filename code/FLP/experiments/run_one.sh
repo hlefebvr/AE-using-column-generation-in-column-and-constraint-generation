@@ -12,16 +12,4 @@ then
   module load gcc
 fi
 
-UUID="$(uuidgen)"
-
-# try-catch block
-{
-
-  $@ > $UUID.log 2>&1
-
-} || {
-
-  echo "$(date) ${FILE}" >> FAILED_${UUID}.log
-
-}
-
+$@

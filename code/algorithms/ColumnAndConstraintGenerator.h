@@ -5,7 +5,7 @@
 #ifndef CCG_WITH_NESTED_CG_COLUMNANDCONSTRAINTGENERATOR_H
 #define CCG_WITH_NESTED_CG_COLUMNANDCONSTRAINTGENERATOR_H
 
-#include "modeling.h"
+#include "idol/modeling.h"
 
 using namespace idol;
 

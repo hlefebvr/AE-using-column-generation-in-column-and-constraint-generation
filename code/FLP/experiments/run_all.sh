@@ -16,10 +16,10 @@ COUNTER=0
 
 for FILE in $PROJECT_DIRECTORY/$INSTANCE_DIRECTORY/*
 do
-  for GAMMA in 4
+  for GAMMA in 3 4
   do
 
-    for STD_PHASE_TIME_LIMIT in 10800 60 120
+    for STD_PHASE_TIME_LIMIT in 0 10800 #60 120
     do
 
       for WITH_HEURISTIC in false true

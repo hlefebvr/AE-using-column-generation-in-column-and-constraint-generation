@@ -3,15 +3,17 @@
 //
 
 #include "FacilityLocationProblem.h"
-#include "optimizers/dantzig-wolfe/Optimizers_DantzigWolfeDecomposition.h"
-#include "optimizers/branch-and-bound/BranchAndBound.h"
-#include "optimizers/branch-and-bound/node-selection-rules/factories/BestBound.h"
-#include "optimizers/dantzig-wolfe/DantzigWolfeDecomposition.h"
-#include "optimizers/solvers/gurobi/Gurobi.h"
-#include "optimizers/branch-and-bound/branching-rules/factories/MostInfeasible.h"
-#include "optimizers/column-generation/IntegerMasterHeuristic.h"
-#include "optimizers/callbacks/LazyCutCallback.h"
-#include "optimizers/branch-and-bound/cutting-planes/CoverCuts.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/Optimizers_DantzigWolfeDecomposition.h"
+#include "idol/optimizers/mixed-integer-optimization/branch-and-bound/BranchAndBound.h"
+#include "idol/optimizers/mixed-integer-optimization/branch-and-bound/node-selection-rules/factories/BestBound.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/DantzigWolfeDecomposition.h"
+#include "idol/optimizers/mixed-integer-optimization/branch-and-bound/branching-rules/factories/MostInfeasible.h"
+#include "idol/optimizers/mixed-integer-optimization/callbacks/heuristics/IntegerMaster.h"
+#include "idol/optimizers/mixed-integer-optimization/callbacks/cutting-planes/LazyCutCallback.h"
+#include "idol/optimizers/mixed-integer-optimization/callbacks/cutting-planes/KnapsackCover.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/infeasibility-strategies/FarkasPricing.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/stabilization/Neame.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/logs/Info.h"
 
 FacilityLocationProblem::FacilityLocationProblem(const Instance &t_instance, double t_Gamma)
     : m_instance(t_instance),
@@ -53,14 +55,14 @@ void FacilityLocationProblem::add_scenario_to_master_problem(Model &t_master,
 
     auto y = Var::make_vector(m_env, Dim<2>(n_facilities, n_customers), 0, 1, Binary, "y_" + std::to_string(t_iteration));
 
-    if (t_master.optimizer().is<Optimizers::BranchAndBound<NodeInfo>>()) {
+    if (t_master.optimizer().is<Optimizers::BranchAndBound<DefaultNodeInfo>>()) {
 
-        const auto& branch_and_bound = t_master.optimizer().as<Optimizers::BranchAndBound<NodeInfo>>();
+        const auto& branch_and_bound = t_master.optimizer().as<Optimizers::BranchAndBound<DefaultNodeInfo>>();
         const auto& dantzig_wolfe = branch_and_bound.relaxation().optimizer().as<Optimizers::DantzigWolfeDecomposition>();
 
         for (auto i  : Range(n_facilities)) {
             for (auto j : Range(n_customers)) {
-                y[i][j].set(dantzig_wolfe.var_annotation(), t_iteration);
+                y[i][j].set(dantzig_wolfe.formulation().decomposition_by_variable(), t_iteration);
             }
         }
 
@@ -131,40 +133,36 @@ void FacilityLocationProblem::set_large_scale_optimizer(Model &t_master) {
                                     .with_master_optimizer(
                                             create_gurobi().with_continuous_relaxation_only(true)
                                     )
-                                    .with_pricing_optimizer(create_gurobi().with_max_n_solution_in_pool(20))
-                                    .with_farkas_pricing(true)
-                                    .with_branching_on_master(false)
-                                    .with_dual_price_smoothing_stabilization(.3)
-                                    .with_parallel_pricing_limit(m_parallel_pricing)
-                                    .with_column_pool_clean_up(300, .66)
-                                    .with_max_columns_per_pricing(20)
-                                    .with_log_frequency(50)
-                                    .with_log_level(Info, Yellow)
+                                    .with_default_sub_problem_spec(
+                                            DantzigWolfe::SubProblem()
+                                                .add_optimizer(create_gurobi())
+                                                .with_max_column_per_pricing(20)
+                                                .with_column_pool_clean_up(300, .66)
+                                    )
+                                    .with_infeasibility_strategy(DantzigWolfe::FarkasPricing())
+                                    .with_hard_branching(true)
+                                    .with_dual_price_smoothing_stabilization(DantzigWolfe::Neame(.3))
+                                    .with_max_parallel_sub_problems(m_parallel_pricing)
+                                    .with_logger(Logs::DantzigWolfe::Info().with_frequency_in_seconds(5))
+                                    .with_logs(true)
                     )
-                    .with_log_frequency(1)
-                    .with_log_level(Info, Blue)
+                    .with_logs(true)
                     .with_branching_rule(MostInfeasible(m_x.begin(), m_x.end()))
                     .with_node_selection_rule(BestBound())
                     .conditional(m_use_heuristic, [this](auto& x){
-                        x.with_callback(
-                                IntegerMasterHeuristic()
+                        x.add_callback(
+                                Heuristics::IntegerMaster()
                                         .with_optimizer(create_gurobi())
                                         .with_integer_columns(false)
                         );
                     })
-                    /*
-                    .with_cutting_planes(
-                            CoverCuts::Adaptive()
-                                    .with_optimizer(Gurobi().with_max_n_solution_in_pool(100))
-                    )
-                     */
                     .with_time_limit(time_limit)
     );
 
 }
 
 void FacilityLocationProblem::set_default_optimizer(Model &t_master) {
-    t_master.use(create_gurobi() /* .with_callback(MonitorOptimalityGap()) */ );
+    t_master.use(create_gurobi());
 }
 
 Solution::Primal FacilityLocationProblem::compute_worst_case_scenario(const Model& t_master,
@@ -207,7 +205,7 @@ Solution::Primal FacilityLocationProblem::compute_worst_case_scenario(const Mode
 
     model.use(
             create_gurobi().with_lazy_cut(true)
-                .with_callback(
+                .add_callback(
                         LazyCutCallback(separation, std::move(cut))
                             .with_separation_optimizer(create_gurobi())
                     )
@@ -231,12 +229,7 @@ Solution::Primal FacilityLocationProblem::compute_worst_case_scenario(const Mode
 }
 
 Gurobi FacilityLocationProblem::create_gurobi() const {
-    return std::move(Gurobi()
-                .with_presolve(false)
-                .with_thread_limit(1)
-                .with_external_param(GRB_DoubleParam_Heuristics, 0.)
-                .with_external_param(GRB_IntParam_Cuts, 0)
-            );
+    return std::move(Gurobi().with_thread_limit(1));
 }
 
 Solution::Primal FacilityLocationProblem::compute_initial_scenario() {

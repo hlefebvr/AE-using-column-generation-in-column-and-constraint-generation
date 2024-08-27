@@ -3,13 +3,16 @@
 //
 
 #include "JobSchedulingProblem.h"
-#include "optimizers/dantzig-wolfe/DantzigWolfeDecomposition.h"
-#include "optimizers/branch-and-bound/BranchAndBound.h"
-#include "optimizers/branch-and-bound/node-selection-rules/factories/DepthFirst.h"
-#include "optimizers/column-generation/IntegerMasterHeuristic.h"
-#include "optimizers/branch-and-bound/branching-rules/factories/MostInfeasible.h"
-#include "optimizers/dantzig-wolfe/Optimizers_DantzigWolfeDecomposition.h"
-#include "optimizers/callbacks/LazyCutCallback.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/DantzigWolfeDecomposition.h"
+#include "idol/optimizers/mixed-integer-optimization/branch-and-bound/BranchAndBound.h"
+#include "idol/optimizers/mixed-integer-optimization/branch-and-bound/node-selection-rules/factories/DepthFirst.h"
+#include "idol/optimizers/mixed-integer-optimization/callbacks/heuristics/IntegerMaster.h"
+#include "idol/optimizers/mixed-integer-optimization/branch-and-bound/branching-rules/factories/MostInfeasible.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/Optimizers_DantzigWolfeDecomposition.h"
+#include "idol/optimizers/mixed-integer-optimization/callbacks/cutting-planes/LazyCutCallback.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/infeasibility-strategies/FarkasPricing.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/stabilization/Neame.h"
+#include "idol/optimizers/mixed-integer-optimization/dantzig-wolfe/logs/Info.h"
 
 JobSchedulingProblem::JobSchedulingProblem(const Instance &t_instance, double t_Gamma)
     : m_instance(t_instance),
@@ -44,9 +47,7 @@ Solution::Primal JobSchedulingProblem::compute_initial_scenario() {
 
 void JobSchedulingProblem::set_default_optimizer(Model &t_master) {
 
-    t_master.use(create_gurobi()
-                         .with_log_level(Info, Black)
-    );
+    t_master.use(create_gurobi());
 
 }
 
@@ -61,33 +62,26 @@ void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
                                     .with_master_optimizer(
                                             create_gurobi().with_continuous_relaxation_only(true)
                                     )
-                                    .with_pricing_optimizer(
-                                            create_gurobi()
-                                                    .with_max_n_solution_in_pool(20)
-                                                    .with_infeasible_or_unbounded_info(true)
-                                                    //.with_log_level(Info, Black)
+                                    .with_default_sub_problem_spec(
+                                            DantzigWolfe::SubProblem()
+                                                    .add_optimizer(create_gurobi())
+                                                    .with_max_column_per_pricing(20)
+                                                    .with_column_pool_clean_up(300, .66)
                                     )
-                                    .with_farkas_pricing(true)
-                                    .with_branching_on_master(false)
-                                    .with_parallel_pricing_limit(m_parallel_pricing)
-                                    //.with_column_pool_clean_up(300, .33)
-                                    .with_max_columns_per_pricing(20)
-                                    .conditional(m_use_non_optimal_pricing, [this](auto& x){
-                                        x.with_non_optimal_pricing_phase(10, .1);
-                                    }, [this](auto& x) {
-                                        x.with_dual_price_smoothing_stabilization(.4);
-                                    })
-                                    .with_log_frequency(1)
-                                    .with_log_level(Info, Yellow)
+                                    .with_infeasibility_strategy(DantzigWolfe::FarkasPricing())
+                                    .with_hard_branching(true)
+                                    .with_dual_price_smoothing_stabilization(DantzigWolfe::Neame(.3))
+                                    .with_max_parallel_sub_problems(m_parallel_pricing)
+                                    .with_logger(Logs::DantzigWolfe::Info().with_frequency_in_seconds(5))
+                                    .with_logs(true)
                     )
-                    .with_log_frequency(1)
+                    .with_logs(true)
                     .with_subtree_depth(1)
-                    .with_log_level(Info, Blue)
                     .with_branching_rule(MostInfeasible(m_x.begin(), m_x.end()))
                     .with_node_selection_rule(DepthFirst())
                     .conditional(m_use_heuristic, [this](auto& x){
-                        x.with_callback(
-                                IntegerMasterHeuristic()
+                        x.add_callback(
+                                Heuristics::IntegerMaster()
                                         .with_optimizer(create_gurobi())
                                         .with_integer_columns(true)
                         );
@@ -98,17 +92,7 @@ void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
 }
 
 Gurobi JobSchedulingProblem::create_gurobi() const {
-    return std::move(Gurobi()
-            .with_presolve(false)
-            .with_thread_limit(1)
-            .with_external_param(GRB_DoubleParam_Heuristics, 0.)
-            .with_external_param(GRB_IntParam_Cuts, 0)
-            .with_external_param(GRB_IntParam_RINS, 0)
-            .with_external_param(GRB_IntParam_Aggregate, 0)
-            .with_external_param(GRB_IntParam_Symmetry, 0)
-            .with_external_param(GRB_IntParam_Disconnected, 0)
-            .with_external_param(GRB_IntParam_VarBranch, 2)
-    );
+    return std::move(Gurobi().with_thread_limit(1));
 }
 
 void
@@ -126,14 +110,14 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     auto y = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
     auto t = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
-    if (t_master.optimizer().is<idol::Optimizers::BranchAndBound<NodeInfo>>()) {
+    if (t_master.optimizer().is<idol::Optimizers::BranchAndBound<DefaultNodeInfo>>()) {
 
-        auto& branch_and_bound = t_master.optimizer().as<idol::Optimizers::BranchAndBound<NodeInfo>>();
+        auto& branch_and_bound = t_master.optimizer().as<idol::Optimizers::BranchAndBound<DefaultNodeInfo>>();
 
         if (branch_and_bound.relaxation().optimizer().is<idol::Optimizers::DantzigWolfeDecomposition>()) {
 
             const auto &dantzig_wolfe = branch_and_bound.relaxation().optimizer().as<idol::Optimizers::DantzigWolfeDecomposition>();
-            const auto &var_annotation = dantzig_wolfe.var_annotation();
+            const auto &var_annotation = dantzig_wolfe.formulation().decomposition_by_variable();
 
             for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
                 y[k].set(var_annotation, t_iteration);
@@ -290,7 +274,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     model.use(
             create_gurobi()
                     .with_lazy_cut(true)
-                    .with_callback(
+                    .add_callback(
                             LazyCutCallback(separation, std::move(cut))
                                     .with_separation_optimizer(create_gurobi())
                     )

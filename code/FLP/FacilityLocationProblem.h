@@ -7,9 +7,7 @@
 
 #include "Instance.h"
 #include "../algorithms/ColumnAndConstraintGenerator.h"
-#include "optimizers/solvers/gurobi/Gurobi.h"
-
-using namespace idol;
+#include "idol/optimizers/mixed-integer-optimization/wrappers/Gurobi/Gurobi.h"
 
 class FacilityLocationProblem : public ColumnAndConstraintGenerator {
     Env m_env;

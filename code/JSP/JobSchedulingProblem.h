@@ -7,7 +7,7 @@
 
 #include "../algorithms/ColumnAndConstraintGenerator.h"
 #include "Instance.h"
-#include "optimizers/solvers/gurobi/Gurobi.h"
+#include "idol/optimizers/mixed-integer-optimization/wrappers/Gurobi/Gurobi.h"
 
 class JobSchedulingProblem : public ColumnAndConstraintGenerator {
     idol::Env m_env;
@@ -19,7 +19,6 @@ class JobSchedulingProblem : public ColumnAndConstraintGenerator {
     Annotation<Ctr> m_annotation;
 
     bool m_use_heuristic = true;
-    bool m_use_non_optimal_pricing = true;
     unsigned int m_parallel_pricing = 1;
 
     idol::Var m_theta;
@@ -34,8 +33,6 @@ public:
     void use_heuristic(bool t_value) { m_use_heuristic = t_value; }
 
     void use_parallel_pricing(unsigned int t_concurrency) { m_parallel_pricing = t_concurrency; }
-
-    void use_non_optimal_pricing(bool t_value) { m_use_non_optimal_pricing = t_value; }
 
 protected:
     Model create_master_problem() override;
