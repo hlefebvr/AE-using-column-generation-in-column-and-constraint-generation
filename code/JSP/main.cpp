@@ -26,7 +26,7 @@ int main(int t_argc, const char** t_argv) {
 
     JobSchedulingProblem problem(instance, Gamma);
 
-    ColumnAndConstraintGeneration ccg(problem, 7200);
+    ColumnAndConstraintGeneration ccg(problem, 10800);
 
     problem.use_parallel_pricing(1);
 
