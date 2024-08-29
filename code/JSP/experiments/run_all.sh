@@ -2,7 +2,7 @@
 
 if [ "$(whoami)" = "utr_lefebvre" ]
 then
-  PROJECT_DIRECTORY=/home/utr_lefebvre/min-max-min-nested-cg/code
+  PROJECT_DIRECTORY=/home/utr_lefebvre/AE-using-column-generation-in-column-and-constraint-generation/code/
 else
   PROJECT_DIRECTORY=/home/henri/CLionProjects/min-max-min-nested-cg/code
 fi

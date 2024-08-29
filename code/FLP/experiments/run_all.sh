@@ -2,15 +2,15 @@
 
 if [ "$(whoami)" = "utr_lefebvre" ]
 then
-  PROJECT_DIRECTORY=/home/utr_lefebvre/min-max-min-nested-cg/code
+  PROJECT_DIRECTORY=/home/utr_lefebvre/AE-using-column-generation-in-column-and-constraint-generation/code
 else
   PROJECT_DIRECTORY=/home/henri/CLionProjects/min-max-min-nested-cg/code
 fi
 
-INSTANCE_DIRECTORY=data
+INSTANCE_DIRECTORY=FLP/data
 BUILD_DIRECTORY=cmake-build-debug
 EXECUTABLE=FLP/FLP_solve
-EXPERIMENTS_DIRECTORY=experiments
+EXPERIMENTS_DIRECTORY=FLP/experiments
 
 COUNTER=0
 
@@ -19,7 +19,7 @@ do
   for GAMMA in 3 4
   do
 
-    for STD_PHASE_TIME_LIMIT in 0 10800 #60 120
+    for STD_PHASE_TIME_LIMIT in 60 #0 10800 #60 120
     do
 
       for WITH_HEURISTIC in false true
