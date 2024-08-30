@@ -142,7 +142,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        t_master.add_ctr(sum_y_k[j] <= 1 - m_x[j]);
+        t_master.add_ctr(sum_y_k[j] <= m_x[j]);
     }
 
     // GUB constraint
@@ -215,7 +215,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        separation.add_ctr(sum_y_k[j] <= 1 - std::round(t_first_stage_solution.get(m_x[j])));
+        separation.add_ctr(sum_y_k[j] <= std::round(t_first_stage_solution.get(m_x[j])));
     }
 
     // Deadlines

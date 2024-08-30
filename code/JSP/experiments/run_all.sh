@@ -4,7 +4,7 @@ if [ "$(whoami)" = "utr_lefebvre" ]
 then
   PROJECT_DIRECTORY=/home/utr_lefebvre/AE-using-column-generation-in-column-and-constraint-generation/code/
 else
-  PROJECT_DIRECTORY=/home/henri/CLionProjects/min-max-min-nested-cg/code
+  PROJECT_DIRECTORY=/home/henri/Research/AE-using-column-generation-in-column-and-constraint-generation/code/
 fi
 
 INSTANCE_DIRECTORY=JSP/data
@@ -19,7 +19,7 @@ do
   for GAMMA in 5 7 9
   do
 
-    for STD_PHASE_TIME_LIMIT in 0 10800 # 120 60
+    for STD_PHASE_TIME_LIMIT in 10800 #0 # 120 60
     do
 
       for WITH_HEURISTIC in false # true
