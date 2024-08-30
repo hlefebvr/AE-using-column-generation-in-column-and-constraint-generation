@@ -22,13 +22,10 @@ do
     for STD_PHASE_TIME_LIMIT in 0 10800 # 120 60
     do
 
-      for WITH_HEURISTIC in false true
+      for WITH_HEURISTIC in false # true
       do
 
-        for NON_OPTIMAL_PRICING in false
-        do
-
-          ARGS="$PROJECT_DIRECTORY/$EXPERIMENTS_DIRECTORY/run_one.sh $PROJECT_DIRECTORY/$BUILD_DIRECTORY/$EXECUTABLE $FILE $STD_PHASE_TIME_LIMIT $GAMMA $WITH_HEURISTIC $NON_OPTIMAL_PRICING"
+          ARGS="$PROJECT_DIRECTORY/$EXPERIMENTS_DIRECTORY/run_one.sh $PROJECT_DIRECTORY/$BUILD_DIRECTORY/$EXECUTABLE $FILE $STD_PHASE_TIME_LIMIT $GAMMA $WITH_HEURISTIC"
 
           echo "Submitting $ARGS"
 
@@ -52,8 +49,6 @@ do
         then
           break
         fi
-
-      done
 
     done
   done
