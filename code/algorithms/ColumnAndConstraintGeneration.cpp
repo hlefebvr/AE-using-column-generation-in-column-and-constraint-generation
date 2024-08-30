@@ -1,6 +1,7 @@
 //
 // Created by henri on 07/04/23.
 //
+#include <cassert>
 #include "ColumnAndConstraintGeneration.h"
 
 ColumnAndConstraintGeneration::ColumnAndConstraintGeneration(ColumnAndConstraintGenerator &t_generator, double t_time_limit)
@@ -128,6 +129,8 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
         log(AdversarialSolved);
 
         ++iteration;
+
+        assert((sense == Minimize && best_obj >= best_bound - 1e-3) || (sense == Maximize && best_obj <= best_bound + 1e-3));
 
     } while (true);
     total_timer.stop();

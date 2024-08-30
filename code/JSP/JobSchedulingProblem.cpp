@@ -142,7 +142,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        t_master.add_ctr(sum_y_k[j] <= m_x[j]);
+        t_master.add_ctr(sum_y_k[j] <= 1 - m_x[j]);
     }
 
     // GUB constraint
@@ -215,12 +215,12 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        separation.add_ctr(sum_y_k[j] <= t_first_stage_solution.get(m_x[j]));
+        separation.add_ctr(sum_y_k[j] <= 1 - std::round(t_first_stage_solution.get(m_x[j])));
     }
 
     // Deadlines
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
-        separation.set_var_ub(t[k], m_job_occurrences[k].deadline);
+        separation.add_ctr(t[k] <= m_job_occurrences[k].deadline);
     }
 
     // Packing
@@ -237,7 +237,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
         const int r_k = job_occurrence.parent->release_date;
         const int p_k = job_occurrence.parent->processing_time;
         const double tau_k = m_percentage_increase * p_k;
-        separation.add_ctr(t[k] - p_k * y[k] - tau_k * z[k] >= r_k - m_big_M[k]);
+        separation.add_ctr(t[k] - p_k * y[k] - tau_k * z[k] - m_big_M[k] * y[k] >= r_k - m_big_M[k]);
     }
 
     // z <= y
