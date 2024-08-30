@@ -11,7 +11,7 @@ int main(int t_argc, const char** t_argv) {
 
     using namespace idol;
 
-    if (t_argc != 6) {
+    if (t_argc != 5) {
         throw Exception("Parameters: <instance_file> <std_phase_time_limit> <gamma> <with_heuristic>");
     }
 
