@@ -38,7 +38,7 @@ Model JobSchedulingProblem::create_master_problem() {
     result.add(m_theta);
     result.add_vector<idol::Var, 1>(m_x);
 
-    result.set_obj_expr(m_theta + idol_Sum(j, Range(n_jobs), m_instance.job(j).weight * m_x[j]));
+    result.set_obj_expr(m_theta + idol_Sum(j, Range(n_jobs), -m_instance.job(j).profit * m_x[j]));
 
     return result;
 }
@@ -110,6 +110,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     };
 
     auto y = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
+    auto z = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "z");
     auto t = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
     if (t_master.optimizer().is<idol::Optimizers::BranchAndBound<DefaultNodeInfo>>()) {
@@ -123,6 +124,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
 
             for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
                 y[k].set(var_annotation, t_iteration);
+                z[k].set(var_annotation, t_iteration);
                 t[k].set(var_annotation, t_iteration);
             }
 
@@ -131,6 +133,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     }
 
     t_master.add_vector<Var, 1>(y);
+    t_master.add_vector<Var, 1>(z);
     t_master.add_vector<Var, 1>(t);
 
     // Compute sum of y_k over G_j for each job j
@@ -139,12 +142,30 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
         sum_y_k[m_job_occurrences[k].parent->index] += y[k];
     }
 
+    // Compute sum of z_k over G_j for each job j
+    std::vector<Expr<Var, Var>> sum_z_k(n_jobs);
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        sum_z_k[m_job_occurrences[k].parent->index] += z[k];
+    }
+
     // Objective function
-    t_master.add_ctr(m_theta >= idol_Sum(j, Range(n_jobs), - (m_instance.job(j).weight + m_instance.job(j).profit) * sum_y_k[j]));
+    Expr objective;
+    for (unsigned int j = 0 ; j < n_jobs ; ++j) {
+        objective += m_instance.job(j).weight * (1 - sum_y_k[j]);
+        objective += m_instance.job(j).outsourcing_cost * is_attacked(j);
+        objective += -m_instance.job(j).outsourcing_cost * sum_z_k[j];
+    }
+    t_master.add_ctr(m_theta >= objective);
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
         t_master.add_ctr(sum_y_k[j] <= m_x[j]);
+    }
+
+    // z <= y
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        const auto j = m_job_occurrences[k].parent->index;
+        t_master.add_ctr(z[k] <= is_attacked(j) * y[k]);
     }
 
     // GUB constraint
@@ -165,10 +186,10 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        const double factor = 1 + is_attacked(job_occurrence.parent->index) * m_percentage_increase;
-        const double processing_time = factor * job_occurrence.parent->processing_time;
+        const double p_k = job_occurrence.parent->processing_time;
+        const double tau_k = m_percentage_increase * p_k;
 
-        Ctr c(m_env, t[k] - t[k-1] - processing_time * y[k] >= 0);
+        Ctr c(m_env, t[k] - t[k-1] - p_k * y[k] - tau_k * z[k] >= 0);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -177,10 +198,10 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        const double factor = 1 + is_attacked(job_occurrence.parent->index) * m_percentage_increase;
-        const double processing_time = factor * job_occurrence.parent->processing_time;
+        const double p_k = job_occurrence.parent->processing_time;
+        const double tau_k = m_percentage_increase * p_k;
 
-        Ctr c(m_env, t[k] - processing_time * y[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
+        Ctr c(m_env, t[k] - p_k * y[k] - tau_k * z[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -208,9 +229,20 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
         sum_y_k[m_job_occurrences[k].parent->index] += y[k];
     }
 
+    // Compute sum of z_k over G_j for each job j
+    std::vector<Expr<Var, Var>> sum_z_k(n_jobs);
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        sum_z_k[m_job_occurrences[k].parent->index] += z[k];
+    }
+
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
         model.add_ctr(sum_y_k[j] <= std::round(t_first_stage_solution.get(m_x[j])));
+    }
+
+    // z <= y
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        model.add_ctr(z[k] <= y[k]);
     }
 
     // Deadlines
@@ -235,23 +267,6 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
         model.add_ctr(t[k] - p_k * y[k] - tau_k * z[k] - m_big_M[k] * y[k] >= r_k - m_big_M[k]);
     }
 
-    // z <= y
-    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
-        model.add_ctr(z[k] <= y[k]);
-    }
-
-    // Compute sum of z_k over G_j for each job j
-    std::vector<Constant> sum_z_k_constant(n_jobs);
-    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
-        sum_z_k_constant[m_job_occurrences[k].parent->index] += !z[k];
-    }
-
-    // Compute sum of y_k over G_j for each job j
-    std::vector<Constant> sum_y_k_constant(n_jobs);
-    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
-        sum_y_k_constant[m_job_occurrences[k].parent->index] += !y[k];
-    }
-
     for (const auto& ctr : model.ctrs()) {
         description.make_follower_ctr(ctr);
     }
@@ -260,17 +275,19 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     }
 
     model.add_vector<Var, 1>(m_xi);
-    auto pi = model.add_var(-Inf, n_jobs, Continuous, Column(1), "pi");
     auto budget = model.add_ctr(idol_Sum(i, Range(n_jobs), m_xi[i]) <= m_Gamma);
 
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
-        const auto& job_occurrence = m_job_occurrences[k];
-        const auto j = job_occurrence.parent->index;
+        const auto j = m_job_occurrences[k].parent->index;
         description.make_follower_ctr(model.add_ctr(z[k] <= m_xi[j]));
-        description.make_follower_ctr(model.add_ctr(z[k] >= y[k] - (1 - m_xi[j])));
     }
 
-    Expr objective = idol_Sum(j, Range(n_jobs), - (m_instance.job(j).weight + m_instance.job(j).profit) * sum_y_k[j]);
+    Expr objective;
+    for (unsigned int j = 0 ; j < n_jobs ; ++j) {
+        objective += m_instance.job(j).weight * (1 - sum_y_k[j]);
+        objective += m_instance.job(j).outsourcing_cost * m_xi[j];
+        objective += -m_instance.job(j).outsourcing_cost * sum_z_k[j];
+    }
     model.set_obj_expr(-1. * objective);
     description.set_follower_obj_expr(objective);
 
