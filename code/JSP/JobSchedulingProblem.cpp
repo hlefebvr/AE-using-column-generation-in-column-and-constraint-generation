@@ -226,7 +226,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     // Packing
     for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
         const auto& job_occurrence = m_job_occurrences[k];
-        const int p_k = job_occurrence.parent->processing_time;
+        const double p_k = job_occurrence.parent->processing_time;
         const double tau_k = m_percentage_increase * p_k;
         separation.add_ctr(t[k] - t[k-1] - p_k * y[k] - tau_k * z[k] >= 0);
     }
@@ -234,8 +234,8 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     // Disjunctive + release
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
         const auto& job_occurrence = m_job_occurrences[k];
-        const int r_k = job_occurrence.parent->release_date;
-        const int p_k = job_occurrence.parent->processing_time;
+        const double r_k = job_occurrence.parent->release_date;
+        const double p_k = job_occurrence.parent->processing_time;
         const double tau_k = m_percentage_increase * p_k;
         separation.add_ctr(t[k] - p_k * y[k] - tau_k * z[k] - m_big_M[k] * y[k] >= r_k - m_big_M[k]);
     }

@@ -13,7 +13,7 @@ class JobSchedulingProblem : public ColumnAndConstraintGenerator {
     idol::Env m_env;
     const Instance& m_instance;
     const std::vector<JobOccurrence> m_job_occurrences;
-    const std::vector<int> m_big_M;
+    const std::vector<double> m_big_M;
     const double m_Gamma;
     const double m_percentage_increase = .3;
     Annotation<Ctr> m_annotation;

@@ -11,11 +11,11 @@
 
 struct Job {
     const unsigned int index;
-    int release_date = 0;
-    int deadline = 0;
-    int processing_time = 0;
-    int weight = 0;
-    int profit = 0;
+    double release_date = 0;
+    double deadline = 0;
+    double processing_time = 0;
+    double weight = 0;
+    double profit = 0;
 public:
     explicit Job(unsigned int t_index);
 
@@ -28,8 +28,8 @@ public:
 
 struct JobOccurrence {
     const Job* parent;
-    int release_date;
-    int deadline;
+    double release_date;
+    double deadline;
 
     JobOccurrence(const Job& t_parent, int t_release_date, int t_deadline);
 
@@ -53,7 +53,7 @@ public:
 
     [[nodiscard]] std::vector<JobOccurrence> compute_job_occurrences() const;
 
-    static std::vector<int> compute_big_M(const std::vector<JobOccurrence>& t_job_occurrence);
+    static std::vector<double> compute_big_M(const std::vector<JobOccurrence>& t_job_occurrence);
 
     static Instance from_file(const std::string& t_filename);
 

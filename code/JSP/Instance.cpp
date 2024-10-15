@@ -7,6 +7,7 @@
 #include <limits>
 #include <fstream>
 #include <random>
+#include <iomanip>
 #include "Instance.h"
 
 Instance::Instance(unsigned int t_n_jobs) {
@@ -53,11 +54,11 @@ std::vector<JobOccurrence> Instance::compute_job_occurrences() const {
     return result;
 }
 
-std::vector<int> Instance::compute_big_M(const std::vector<JobOccurrence> &t_job_occurrence) {
+std::vector<double> Instance::compute_big_M(const std::vector<JobOccurrence> &t_job_occurrence) {
 
     const unsigned int n_job_occurrences = t_job_occurrence.size();
 
-    std::vector<int> result;
+    std::vector<double> result;
     result.reserve(n_job_occurrences);
 
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
@@ -68,7 +69,7 @@ std::vector<int> Instance::compute_big_M(const std::vector<JobOccurrence> &t_job
                 min = r_l;
             }
         }
-        result.emplace_back(std::max(min + 1, 1) - 1);
+        result.emplace_back(std::max<double>(min + 1, 1) - 1);
     }
 
     return result;
@@ -83,7 +84,7 @@ Instance Instance::from_file(const std::string &t_filename) {
     }
 
     unsigned int n_jobs;
-    int placeholder;
+    double placeholder;
 
     file >> n_jobs;
 
@@ -116,10 +117,10 @@ Instance Instance::generate(unsigned int t_n_jobs, unsigned int t_R, unsigned in
 
     std::random_device device;
     std::mt19937 generator(device());
-    std::uniform_int_distribution<int> processing_time_distribution(1,100);
-    std::uniform_int_distribution<int> weight_distribution(1,10);
-    std::uniform_int_distribution<int> profit_distribution(1,10);
-    std::uniform_int_distribution<int> release_date_distribution(0,t_n_jobs * t_R);
+    std::uniform_real_distribution<double> processing_time_distribution(1,100);
+    std::uniform_real_distribution<double> weight_distribution(1,10);
+    std::uniform_real_distribution<double> profit_distribution(1,10);
+    std::uniform_real_distribution<double> release_date_distribution(0,t_n_jobs * t_R);
 
     Instance result(t_n_jobs);
 
@@ -132,7 +133,7 @@ Instance Instance::generate(unsigned int t_n_jobs, unsigned int t_R, unsigned in
         job.release_date = release_date_distribution(generator);
         job.profit = profit_distribution(generator);
 
-        std::uniform_int_distribution<int> deadline_distribution(0,t_n_jobs * t_D);
+        std::uniform_real_distribution<double> deadline_distribution(0,t_n_jobs * t_D);
 
         job.deadline = job.release_date + job.processing_time + deadline_distribution(generator);
 
@@ -160,6 +161,8 @@ std::ostream &operator<<(std::ostream &t_os, const Instance& t_instance) {
     const unsigned int n_jobs = t_instance.n_jobs();
 
     t_os << n_jobs << '\n';
+
+    t_os << std::setprecision(10);
 
     for (unsigned int i = 0 ; i < n_jobs ; ++i) {
         const auto& job = t_instance.job(i);
