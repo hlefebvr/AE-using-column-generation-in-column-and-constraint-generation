@@ -16,6 +16,7 @@ struct Job {
     double processing_time = 0;
     double weight = 0;
     double profit = 0;
+    double outsourcing_cost = 0;
 public:
     explicit Job(unsigned int t_index);
 

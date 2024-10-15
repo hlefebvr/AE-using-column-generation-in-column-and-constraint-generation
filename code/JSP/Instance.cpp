@@ -8,6 +8,7 @@
 #include <fstream>
 #include <random>
 #include <iomanip>
+#include <iostream>
 #include "Instance.h"
 
 Instance::Instance(unsigned int t_n_jobs) {
@@ -62,12 +63,15 @@ std::vector<double> Instance::compute_big_M(const std::vector<JobOccurrence> &t_
     result.reserve(n_job_occurrences);
 
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
-        int min = std::numeric_limits<int>::max();
+        double min = std::numeric_limits<double>::max();
         for (unsigned int l = k + 1 ; l < n_job_occurrences ; ++l) {
-            const int r_l = t_job_occurrence.at(l).release_date;
+            const double r_l = t_job_occurrence.at(l).release_date;
             if (min > r_l) {
                 min = r_l;
             }
+        }
+        if (min == std::numeric_limits<double>::max()) {
+            min = 0;
         }
         result.emplace_back(std::max<double>(min + 1, 1) - 1);
     }
@@ -108,6 +112,9 @@ Instance Instance::from_file(const std::string &t_filename) {
 
         file >> placeholder;
         job.profit = placeholder;
+
+        file >> placeholder;
+        job.outsourcing_cost = placeholder;
     }
 
     return result;
@@ -118,8 +125,9 @@ Instance Instance::generate(unsigned int t_n_jobs, unsigned int t_R, unsigned in
     std::random_device device;
     std::mt19937 generator(device());
     std::uniform_real_distribution<double> processing_time_distribution(1,100);
-    std::uniform_real_distribution<double> weight_distribution(1,10);
-    std::uniform_real_distribution<double> profit_distribution(1,10);
+    std::uniform_real_distribution<double> weight_distribution(1,100);
+    std::uniform_real_distribution<double> profit_distribution(1,100);
+    std::uniform_real_distribution<double> outsourcing_cost_distribution(1,100);
     std::uniform_real_distribution<double> release_date_distribution(0,t_n_jobs * t_R);
 
     Instance result(t_n_jobs);
@@ -132,6 +140,7 @@ Instance Instance::generate(unsigned int t_n_jobs, unsigned int t_R, unsigned in
         job.weight = weight_distribution(generator);
         job.release_date = release_date_distribution(generator);
         job.profit = profit_distribution(generator);
+        job.outsourcing_cost = outsourcing_cost_distribution(generator);
 
         std::uniform_real_distribution<double> deadline_distribution(0,t_n_jobs * t_D);
 
@@ -170,7 +179,8 @@ std::ostream &operator<<(std::ostream &t_os, const Instance& t_instance) {
         t_os << job.release_date << '\t';
         t_os << job.deadline << '\t';
         t_os << job.processing_time << '\t';
-        t_os << job.profit << '\n';
+        t_os << job.profit << '\t';
+        t_os << job.outsourcing_cost << '\n';
     }
 
     return t_os;

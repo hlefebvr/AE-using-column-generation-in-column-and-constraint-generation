@@ -32,7 +32,15 @@ int main(int t_argc, const char** t_argv) {
 
     problem.use_heuristic(with_heuristic);
 
-    ccg.solve(std_phase_time_limit, filename.substr(filename.find_last_of('/') + 1));
+    auto sol = ccg.solve(std_phase_time_limit, filename.substr(filename.find_last_of('/') + 1));
+
+    std::cout << "\n";
+    for (const auto& [var, val] : sol) {
+        if (var.name().front() != 'x') {
+            continue;
+        }
+        std::cout << var.name() << " = " << val << std::endl;
+    }
 
     std::cout << with_heuristic << ','
               << instance.n_jobs() << ','
