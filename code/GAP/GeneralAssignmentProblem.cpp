@@ -215,7 +215,7 @@ Solution::Primal GeneralAssignmentProblem::compute_worst_case_scenario(const Mod
     auto cut = pi <= idol_Sum(i, Range(n_facilities),
                                           idol_Sum(j, Range(n_customers),
                                                    cost(i,j) * !y[i][j]
-                                                   - cost(i,j) * !y[i][j] * m_xi[i]
+                                                   - cost(i,j) * !y[i][j] * m_xi[i][j]
                                           )
     );
 
