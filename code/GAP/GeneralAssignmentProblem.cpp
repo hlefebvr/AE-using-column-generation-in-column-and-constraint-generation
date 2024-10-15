@@ -187,12 +187,7 @@ Solution::Primal GeneralAssignmentProblem::compute_worst_case_scenario(const Mod
     model.set_obj_sense(Maximize);
     model.add_vector<Var, 2>(m_xi);
     auto pi = model.add_var(-Inf, 0, Continuous, Column(1), "pi");
-
-    const auto xi_grouped = model.add_vars(Dim<1>(n_customers), 0, 1, Binary, "xi_grouped");
-    for (unsigned int j = 0; j < n_customers; ++j) {
-        model.add_ctr(idol_Sum(i, Range(n_facilities), m_xi[i][j]) == xi_grouped[j]);
-    }
-    auto budget = model.add_ctr(idol_Sum(j, Range(n_customers), xi_grouped[j]) <= m_Gamma);
+    auto budget = model.add_ctr(idol_Sum(i, Range(n_facilities), idol_Sum(j, Range(n_customers), m_xi[i][j])) <= m_Gamma);
 
     // Create separation problem
     Model separation(m_env);
@@ -220,7 +215,7 @@ Solution::Primal GeneralAssignmentProblem::compute_worst_case_scenario(const Mod
     auto cut = pi <= idol_Sum(i, Range(n_facilities),
                                           idol_Sum(j, Range(n_customers),
                                                    cost(i,j) * !y[i][j]
-                                                   - cost(i,j) * !y[i][j] * m_xi[i][j]
+                                                   - cost(i,j) * !y[i][j] * m_xi[i]
                                           )
     );
 
