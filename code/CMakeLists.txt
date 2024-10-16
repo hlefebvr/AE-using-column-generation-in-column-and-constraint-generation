@@ -24,6 +24,6 @@ FetchContent_MakeAvailable(idol)
 
 add_subdirectory(algorithms)
 add_subdirectory(FLP)
-#add_subdirectory(JSP)
+add_subdirectory(JSP)
 #add_subdirectory(MJSP)
 add_subdirectory(GAP)
