@@ -121,7 +121,7 @@ void GeneralAssignmentProblem::add_scenario_to_master_problem(Model &t_master,
 }
 
 double GeneralAssignmentProblem::cost(unsigned int t_facility, unsigned int t_customer) const {
-    return std::floor(- m_instance.profit(t_customer));
+    return std::floor(- m_instance.per_unit_transportation_cost(t_facility, t_customer) * m_instance.demand(t_customer));
 }
 
 void GeneralAssignmentProblem::set_large_scale_optimizer(Model &t_master) {
