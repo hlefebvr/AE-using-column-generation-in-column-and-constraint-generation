@@ -16,7 +16,7 @@ COUNTER=0
 
 for FILE in $PROJECT_DIRECTORY/$INSTANCE_DIRECTORY/*
 do
-  for GAMMA in 5 7 #9
+  for GAMMA in 3 4
   do
 
     for STD_PHASE_TIME_LIMIT in 0 10800 # 120 60

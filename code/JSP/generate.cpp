@@ -8,8 +8,8 @@
 int main(int t_argc, const char** t_argv) {
 
     const std::string destination_folder = "/home/henri/Research/AE-using-column-generation-in-column-and-constraint-generation/code/JSP/data";
-    const auto n_instances_per_config = 5;
-    const auto n_values = { 20, 30, 40 };
+    const auto n_instances_per_config = 10;
+    const auto n_values = { 15, 20 };
     const auto R_values = { 1, 5, 10, 20 };
     const auto D_values = { 1, 5, 10, 20 };
 
