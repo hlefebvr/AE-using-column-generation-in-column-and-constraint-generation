@@ -47,6 +47,8 @@ protected:
     Solution::Primal compute_initial_scenario() override;
 
     [[nodiscard]] Gurobi create_gurobi() const;
+
+    double solve_second_stage(const Solution::Primal &t_first_stage_solution, const Solution::Primal &t_scenario) override;
 };
 
 

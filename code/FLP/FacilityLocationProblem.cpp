@@ -236,3 +236,45 @@ Gurobi FacilityLocationProblem::create_gurobi() const {
 Solution::Primal FacilityLocationProblem::compute_initial_scenario() {
     return {};
 }
+
+double FacilityLocationProblem::solve_second_stage(const Solution::Primal &t_first_stage_solution,
+                                                   const Solution::Primal &t_scenario) {
+    const unsigned int n_facilities = m_instance.n_facilities();
+    const unsigned int n_customers = m_instance.n_customers();
+
+    Model model(m_env);
+
+    const auto y = model.add_vars(Dim<2>(n_facilities, n_customers), 0, 1, Binary, "y");
+
+
+    // Add objective constraint
+    model.set_obj_expr(idol_Sum(i, Range(n_facilities),
+                              idol_Sum(j, Range(n_customers), cost(i,j) * y[i][j])));
+
+    // Add assignment constraints
+    for (auto j : Range(n_customers)) {
+        model.add_ctr(idol_Sum(i, Range(n_facilities), y[i][j]) <= 1);
+    }
+
+    // Add capacity constraints
+    for (auto i : Range(n_facilities)) {
+        const double x_val = std::round(t_first_stage_solution.get(m_x[i]));
+        model.add_ctr(idol_Sum(j, Range(n_customers), m_instance.demand(j) * y[i][j]) <= m_instance.capacity(i) * x_val);
+    }
+
+    // Add interdiction constraints
+    for (auto i : Range(n_facilities)) {
+
+        for (auto j: Range(n_customers)) {
+            const double xi_val = std::round(t_scenario.get(m_xi[i]));
+            model.set_var_ub(y[i][j], 1 - xi_val);
+        }
+
+    }
+
+    model.use(create_gurobi());
+
+    model.optimize();
+
+    return model.get_best_obj();
+}

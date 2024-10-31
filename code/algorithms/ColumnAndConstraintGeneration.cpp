@@ -106,7 +106,7 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
         log(MasterSolved);
 
         adversarial_timer.start();
-        const auto worst_case_scenario = m_generator.compute_worst_case_scenario(master_problem, first_stage_solution, std::max(.0, m_time_limit - total_timer.count()));
+        auto worst_case_scenario = m_generator.compute_worst_case_scenario(master_problem, first_stage_solution, std::max(.0, m_time_limit - total_timer.count()));
         adversarial_timer.stop();
 
         if (worst_case_scenario.status() != Optimal) {
@@ -125,6 +125,8 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
         if (stopping_condition()) { break; }
 
         m_generator.add_scenario_to_master_problem(master_problem, worst_case_scenario, iteration);
+        m_scenarios.emplace_back(std::move(worst_case_scenario));
+        compute_second_stage_values(first_stage_solution);
 
         log(AdversarialSolved);
 
@@ -134,6 +136,8 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
 
     } while (true);
     total_timer.stop();
+
+    const auto [mean, std_dev] = compute_scenario_statistics();
 
     std::cout << "result,"
               << t_tag << ','
@@ -150,6 +154,8 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
               << best_obj << ','
               << relative_gap(best_bound, best_obj) * 100 << ','
               << absolute_gap(best_bound, best_obj) << ','
+              << mean << ','
+              << std_dev << ','
               ;
 
     if (adversarial_unexpected_status.has_value()) {
@@ -160,4 +166,36 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
     first_stage_solution.set_objective_value(best_obj);
 
     return first_stage_solution;
+}
+
+std::pair<double, double> ColumnAndConstraintGeneration::compute_scenario_statistics() const {
+    double mean = 0.;
+    double std_dev = 0.;
+
+    // Calculate mean
+    if (!m_second_stage_values.empty()) {
+        double sum = 0.;
+        for (const auto& value : m_second_stage_values) {
+            sum += value;
+        }
+        mean = sum / (double) m_second_stage_values.size();
+    }
+
+    // Calculate standard deviation
+    if (m_second_stage_values.size() > 1) {
+        double variance_sum = 0.;
+        for (const auto& value : m_second_stage_values) {
+            variance_sum += (value - mean) * (value - mean);
+        }
+        std_dev = std::sqrt(variance_sum / (double) (m_second_stage_values.size() - 1));
+    }
+
+    return { mean, std_dev };
+}
+
+void ColumnAndConstraintGeneration::compute_second_stage_values(const Solution::Primal &t_first_stage_solution) {
+    for (const auto& scenario : m_scenarios) {
+        const double value = m_generator.solve_second_stage(t_first_stage_solution, scenario);
+        m_second_stage_values.emplace_back(value);
+    }
 }

@@ -10,6 +10,11 @@
 class ColumnAndConstraintGeneration {
     ColumnAndConstraintGenerator& m_generator;
     const double m_time_limit;
+    std::list<Solution::Primal> m_scenarios;
+    std::list<double> m_second_stage_values;
+
+    [[nodiscard]] std::pair<double, double> compute_scenario_statistics() const;
+    void compute_second_stage_values(const Solution::Primal& t_first_stage_solution);
 public:
     explicit ColumnAndConstraintGeneration(ColumnAndConstraintGenerator& t_generator, double t_time_limit = 3600);
 

@@ -297,3 +297,68 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     return result;
 
 }
+
+double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_stage_solution,
+                                                const Solution::Primal &t_scenario) {
+    Model model(m_env);
+
+    const auto n_jobs = m_instance.n_jobs();
+    const auto n_job_occurrences = m_job_occurrences.size();
+
+    auto y = model.add_vars(Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
+    auto t = model.add_vars(Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
+
+    // Compute sum of y_k over G_j for each job j
+    std::vector<Expr<Var, Var>> sum_y_k(n_jobs);
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        sum_y_k[m_job_occurrences[k].parent->index] += y[k];
+    }
+
+    // Objective function
+    model.set_obj_expr(idol_Sum(j, Range(n_jobs), - (m_instance.job(j).weight + m_instance.job(j).profit) * sum_y_k[j]));
+
+    // Linking constraints
+    for (unsigned int j = 0 ; j < n_jobs ; ++j) {
+        const double x_val = std::round(t_first_stage_solution.get(m_x[j]));
+        model.add_ctr(sum_y_k[j] <= x_val);
+    }
+
+    // GUB constraint
+    for (unsigned int j = 0 ; j < n_jobs ; ++j) {
+        model.add_ctr(sum_y_k[j] <= 1);
+    }
+
+    // Deadlines
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        model.add_ctr(t[k] <= m_job_occurrences[k].deadline);
+    }
+
+    // Non-overlapping
+    for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
+
+        const auto& job_occurrence = m_job_occurrences[k];
+        const double is_attacked = std::round(t_scenario.get(m_xi[job_occurrence.parent->index]));
+        const double factor = 1 + is_attacked * m_percentage_increase;
+        const double processing_time = factor * job_occurrence.parent->processing_time;
+
+        model.add_ctr(t[k] - t[k-1] - processing_time * y[k] >= 0);
+    }
+
+    // Disjunctive + release dates
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+
+        const auto& job_occurrence = m_job_occurrences[k];
+        const double is_attacked = std::round(t_scenario.get(m_xi[job_occurrence.parent->index]));
+        const double factor = 1 + is_attacked * m_percentage_increase;
+        const double processing_time = factor * job_occurrence.parent->processing_time;
+
+        model.add_ctr(t[k] - processing_time * y[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
+    }
+
+
+    model.use(create_gurobi());
+
+    model.optimize();
+
+    return model.get_best_obj();
+}

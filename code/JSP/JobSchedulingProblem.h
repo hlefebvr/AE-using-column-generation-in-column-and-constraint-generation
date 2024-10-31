@@ -51,6 +51,9 @@ protected:
     compute_worst_case_scenario(const Model &t_master, const Solution::Primal &t_first_stage_solution, double t_time_limit) override;
 
     [[nodiscard]] Gurobi create_gurobi() const;
+
+    double
+    solve_second_stage(const Solution::Primal &t_first_stage_solution, const Solution::Primal &t_scenario) override;
 };
 
 

@@ -27,6 +27,8 @@ protected:
     virtual void add_scenario_to_master_problem(Model& t_master,
                                                 const Solution::Primal& t_worst_case_scenario,
                                                 unsigned int t_iteration) = 0;
+
+    virtual double solve_second_stage(const Solution::Primal& t_first_stage_solution, const Solution::Primal& t_scenario) = 0;
 };
 
 #endif //CCG_WITH_NESTED_CG_COLUMNANDCONSTRAINTGENERATOR_H
