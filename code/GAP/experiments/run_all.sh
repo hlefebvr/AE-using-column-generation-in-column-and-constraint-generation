@@ -7,7 +7,7 @@ else
   PROJECT_DIRECTORY=/home/henri/CLionProjects/min-max-min-nested-cg/code
 fi
 
-INSTANCE_DIRECTORY=GAP/data
+INSTANCE_DIRECTORY=GAP/data/to-run
 BUILD_DIRECTORY=cmake-build-debug
 EXECUTABLE=GAP/GAP_solve
 EXPERIMENTS_DIRECTORY=GAP/experiments
