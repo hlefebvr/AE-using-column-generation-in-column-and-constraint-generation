@@ -8,8 +8,7 @@
 
 if [ "$(whoami)" = "utr_lefebvre" ]
 then
-  module purge
-  module load gcc
+  :
 fi
 
 echo "cmd: ${@}"
