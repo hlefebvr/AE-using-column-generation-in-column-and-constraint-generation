@@ -19,7 +19,7 @@ class JobSchedulingProblem : public ColumnAndConstraintGenerator {
     Annotation<Ctr> m_annotation;
 
     bool m_use_heuristic = true;
-    unsigned int m_parallel_pricing = 1;
+    unsigned int m_parallel_pricing = 5;
 
     idol::Var m_theta;
     idol::Vector<idol::Var, 1> m_x;
