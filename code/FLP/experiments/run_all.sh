@@ -7,7 +7,7 @@ else
   PROJECT_DIRECTORY=/home/henri/CLionProjects/min-max-min-nested-cg/code
 fi
 
-INSTANCE_DIRECTORY=FLP/data
+INSTANCE_DIRECTORY=FLP/data/to-run
 BUILD_DIRECTORY=cmake-build-debug
 EXECUTABLE=FLP/FLP_solve
 EXPERIMENTS_DIRECTORY=FLP/experiments
