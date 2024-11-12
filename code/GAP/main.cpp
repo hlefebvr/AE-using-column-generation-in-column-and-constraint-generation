@@ -26,20 +26,22 @@ int main(int t_argc, char** t_argv) {
 
     problem.use_heuristic(with_heuristic);
 
+    std::stringstream tag;
+
+    tag << filename
+       << with_heuristic << ','
+       << instance.n_facilities() << ','
+       << instance.n_customers() << ','
+       << problem.Gamma();
+
 	try {
 
-    ccg.solve(std_phase_time_limit, filename);
+    ccg.solve(std_phase_time_limit, tag.str());
 
 	} catch (GRBException& err) {
 		std::cout << err.getMessage() << std::endl;
 		__throw_exception_again;
 	}
-
-    std::cout << with_heuristic << ','
-              << instance.n_facilities() << ','
-              << instance.n_customers() << ','
-              << problem.Gamma() << ','
-              << std::endl;
 
     return 0;
 }

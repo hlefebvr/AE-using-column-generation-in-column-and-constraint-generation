@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes 1
-#SBATCH --mem 32GB
+#SBATCH --mem 16GB
 #SBATCH --time 0-03:30:00
 #SBATCH --mail-type NONE
 #SBATCH --ntasks 1 # 1 processor to be used

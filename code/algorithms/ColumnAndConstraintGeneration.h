@@ -15,6 +15,7 @@ class ColumnAndConstraintGeneration {
 
     [[nodiscard]] std::pair<double, double> compute_scenario_statistics() const;
     void compute_second_stage_values(const Solution::Primal& t_first_stage_solution);
+    void check_for_repeated_scenario(const Solution::Primal& t_worst_case_scenario);
 public:
     explicit ColumnAndConstraintGeneration(ColumnAndConstraintGenerator& t_generator, double t_time_limit = 3600);
 

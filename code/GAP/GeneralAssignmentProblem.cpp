@@ -221,7 +221,8 @@ Solution::Primal GeneralAssignmentProblem::compute_worst_case_scenario(const Mod
     );
 
     model.use(
-            create_gurobi().with_lazy_cut(true)
+            create_gurobi()
+                .with_lazy_cut(true)
                 .add_callback(
                         LazyCutCallback(separation, std::move(cut))
                             .with_separation_optimizer(create_gurobi())

@@ -2,6 +2,7 @@
 // Created by henri on 07/04/23.
 //
 #include <cassert>
+#include <cmath>
 #include "ColumnAndConstraintGeneration.h"
 
 ColumnAndConstraintGeneration::ColumnAndConstraintGeneration(ColumnAndConstraintGenerator &t_generator, double t_time_limit)
@@ -58,6 +59,36 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
         } else {
             master_problem.optimizer().set_param_time_limit(remaining_time);
         }
+
+    };
+
+    const auto print_result = [&](const std::string& t_type = "result") {
+
+        const auto [mean, std_dev] = compute_scenario_statistics();
+
+        std::cout << t_type << ","
+                  << t_tag << ','
+                  << (t_std_phase_time_limit < m_time_limit ? std::to_string(t_std_phase_time_limit) : "inf") << ','
+                  << (t_std_phase_time_limit < m_time_limit ? "CG" : "STD") << ','
+                  << master_problem.get_status() << ','
+                  << master_problem.get_reason() << ','
+                  << large_scale_phase << ','
+                  << iteration << ','
+                  << total_timer.count() << ','
+                  << master_timer.cumulative_count() << ','
+                  << adversarial_timer.cumulative_count() << ','
+                  << best_bound << ','
+                  << best_obj << ','
+                  << relative_gap(best_bound, best_obj) * 100 << ','
+                  << absolute_gap(best_bound, best_obj) << ','
+                  << mean << ','
+                  << std_dev
+                ;
+
+        if (adversarial_unexpected_status.has_value()) {
+            std::cout << adversarial_unexpected_status.value();
+        }
+        std::cout << std::endl;
 
     };
 
@@ -124,11 +155,15 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
 
         if (stopping_condition()) { break; }
 
+        //check_for_repeated_scenario(worst_case_scenario);
+
         m_generator.add_scenario_to_master_problem(master_problem, worst_case_scenario, iteration);
         m_scenarios.emplace_back(std::move(worst_case_scenario));
         compute_second_stage_values(first_stage_solution);
 
         log(AdversarialSolved);
+
+        print_result("iteration");
 
         ++iteration;
 
@@ -137,31 +172,7 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
     } while (true);
     total_timer.stop();
 
-    const auto [mean, std_dev] = compute_scenario_statistics();
-
-    std::cout << "result,"
-              << t_tag << ','
-              << (t_std_phase_time_limit < m_time_limit ? std::to_string(t_std_phase_time_limit) : "inf") << ','
-              << (t_std_phase_time_limit < m_time_limit ? "CG" : "STD") << ','
-              << master_problem.get_status() << ','
-              << master_problem.get_reason() << ','
-              << large_scale_phase << ','
-              << iteration << ','
-              << total_timer.count() << ','
-              << master_timer.cumulative_count() << ','
-              << adversarial_timer.cumulative_count() << ','
-              << best_bound << ','
-              << best_obj << ','
-              << relative_gap(best_bound, best_obj) * 100 << ','
-              << absolute_gap(best_bound, best_obj) << ','
-              << mean << ','
-              << std_dev << ','
-              ;
-
-    if (adversarial_unexpected_status.has_value()) {
-        std::cout << adversarial_unexpected_status.value();
-    }
-    std::cout << ',';
+    print_result();
 
     first_stage_solution.set_objective_value(best_obj);
 
@@ -198,4 +209,37 @@ void ColumnAndConstraintGeneration::compute_second_stage_values(const Solution::
         const double value = m_generator.solve_second_stage(t_first_stage_solution, scenario);
         m_second_stage_values.emplace_back(value);
     }
+}
+
+void ColumnAndConstraintGeneration::check_for_repeated_scenario(const Solution::Primal &t_worst_case_scenario) {
+
+    std::cout << "Checking for repeated scenario among " << m_scenarios.size() << " stored scenarios..." << std::endl;
+
+    const auto is_same = [](const Solution::Primal& t_lhs, const Solution::Primal& t_rhs) {
+
+        for (const auto& [var, val] : t_lhs) {
+            if (std::abs(val - t_rhs.get(var)) > 1e-3) {
+                return false;
+            }
+        }
+
+        for (const auto& [var, val] : t_rhs) {
+            if (std::abs(val - t_lhs.get(var)) > 1e-3) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    for (const auto& scenario : m_scenarios) {
+        if (is_same(scenario, t_worst_case_scenario)) {
+            std::cerr << "Repeated scenario found!" << std::endl;
+            std::cout << "Stored Scenario:\n" << scenario << std::endl;
+            std::cout << "Current Scenario:\n" << t_worst_case_scenario << std::endl;
+            throw Exception("Repeated scenario found!");
+        }
+
+    }
+
 }
