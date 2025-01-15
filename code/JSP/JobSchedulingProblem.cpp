@@ -65,6 +65,7 @@ void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
                                     )
                                     .with_default_sub_problem_spec(
                                             DantzigWolfe::SubProblem()
+                                                    .add_optimizer(create_gurobi().with_best_obj_stop(-1e-3))
                                                     .add_optimizer(create_gurobi())
                                                     .with_max_column_per_pricing(20)
                                                     .with_column_pool_clean_up(300, .66)
