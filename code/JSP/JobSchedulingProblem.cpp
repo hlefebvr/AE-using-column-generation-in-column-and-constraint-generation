@@ -35,7 +35,7 @@ Model JobSchedulingProblem::create_master_problem() {
     result.add(m_theta);
     result.add_vector<idol::Var, 1>(m_x);
 
-    result.set_obj_expr(m_theta);
+    result.set_obj_expr(m_theta + idol_Sum(j, Range(m_instance.n_jobs()), m_instance.job(j).weight * m_x[j]));
 
     return result;
 }
@@ -61,16 +61,16 @@ void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
                                     )
                                     .with_default_sub_problem_spec(
                                             DantzigWolfe::SubProblem()
-                                                    //.add_optimizer(create_gurobi().with_best_obj_stop(-10))
+                                                    //.add_optimizer(create_gurobi().with_best_obj_stop(-1e2))
                                                     .add_optimizer(create_gurobi())
                                                     .with_max_column_per_pricing(20)
-                                                    .with_column_pool_clean_up(700, .66)
+                                                    .with_column_pool_clean_up(300, .66)
                                     )
                                     .with_infeasibility_strategy(DantzigWolfe::FarkasPricing())
                                     .with_hard_branching(true)
                                     .with_dual_price_smoothing_stabilization(DantzigWolfe::Neame(.3))
                                     .with_max_parallel_sub_problems(m_parallel_pricing)
-                                    .with_logger(Logs::DantzigWolfe::Info().with_frequency_in_seconds(5))
+                                    .with_logger(Logs::DantzigWolfe::Info().with_frequency_in_seconds(5).with_sub_problems(false))
                                     .with_logs(true)
                     )
                     .with_logs(true)
@@ -106,7 +106,6 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     };
 
     auto y = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
-    auto U = idol::Var::make_vector(m_env, Dim<1>(n_jobs), 0, 1, Binary, "U");
     auto t = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
     if (t_master.optimizer().is<idol::Optimizers::BranchAndBound<DefaultNodeInfo>>()) {
@@ -123,16 +122,11 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
                 t[k].set(var_annotation, t_iteration);
             }
 
-            for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-                U[j].set(var_annotation, t_iteration);
-            }
-
         }
 
     }
 
     t_master.add_vector<Var, 1>(y);
-    t_master.add_vector<Var, 1>(U);
     t_master.add_vector<Var, 1>(t);
 
     // Compute sum of y_k over G_j for each job j
@@ -142,16 +136,16 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     }
 
     // Objective function
-    t_master.add_ctr(m_theta >= idol_Sum(j, Range(n_jobs), m_instance.job(j).weight * U[j] - m_instance.job(j).profit * sum_y_k[j] ));
+    t_master.add_ctr(m_theta >= idol_Sum(j, Range(n_jobs), -(m_instance.job(j).weight + m_instance.job(j).profit) * sum_y_k[j] ));
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        t_master.add_ctr(sum_y_k[j] + U[j] == m_x[j]);
+        t_master.add_ctr(sum_y_k[j] <= m_x[j]);
     }
 
     // GUB constraint
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        Ctr c(m_env, sum_y_k[j] + U[j] <= 1);
+        Ctr c(m_env, sum_y_k[j] <= 1);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -208,7 +202,6 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
     auto y = separation.add_vars(Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
     auto z = separation.add_vars(Dim<1>(n_job_occurrences), 0, 1, Binary, "z");
-    auto U = separation.add_vars(Dim<1>(n_jobs), 0, 1, Binary, "U");
     auto t = separation.add_vars(Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
     // Compute sum of y_k over G_j for each job j
@@ -220,7 +213,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
         const double x_val = std::round(t_first_stage_solution.get(m_x[j]));
-        separation.add_ctr(sum_y_k[j] + U[j] == x_val);
+        separation.add_ctr(sum_y_k[j] <= x_val);
     }
 
     // Deadlines
@@ -267,10 +260,9 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
         const auto& job = m_instance.job(j);
 
-        rhs += job.weight * !U[j];
-        rhs -= job.profit * sum_y_k_constant[j];
-        rhs += (2 * job.profit) * (m_xi[j] * sum_y_k_constant[j]);
-        rhs -= (2 * job.profit) * (m_xi[j] * sum_z_k_constant[j]);
+        rhs += -(job.weight + job.profit) * sum_y_k_constant[j];
+        rhs += (job.weight + job.profit) * (m_xi[j] * sum_y_k_constant[j]);
+        rhs -= (job.weight + job.profit) * (m_xi[j] * sum_z_k_constant[j]);
 
     }
 
