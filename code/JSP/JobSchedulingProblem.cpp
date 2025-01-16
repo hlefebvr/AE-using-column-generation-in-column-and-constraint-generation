@@ -286,8 +286,9 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
         const auto& job = m_instance.job(j);
 
         rhs += job.weight * !U[j];
-        rhs -= job.profit * (sum_y_k_constant[j] - m_xi[j] * sum_y_k_constant[j]);
-        rhs -= job.profit * (m_xi[j] * sum_z_k_constant[j]);
+        rhs -= job.profit * sum_y_k_constant[j];
+        rhs += (2 * job.profit) * (m_xi[j] * sum_y_k_constant[j]);
+        rhs -= (2 * job.profit) * (m_xi[j] * sum_z_k_constant[j]);
 
     }
 
@@ -381,6 +382,8 @@ double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_
     model.use(create_gurobi());
 
     model.optimize();
+
+    std::cout << "Second stage objective: " << model.get_best_obj() << std::endl;
 
     return model.get_best_obj();
 }
