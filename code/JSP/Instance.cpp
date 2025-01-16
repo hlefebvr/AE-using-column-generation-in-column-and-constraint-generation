@@ -136,15 +136,15 @@ Instance Instance::generate(unsigned int t_n_jobs, unsigned int t_R, unsigned in
 
         auto& job = result.job(j);
 
-        job.processing_time = processing_time_distribution(generator);
-        job.weight = weight_distribution(generator);
-        job.release_date = release_date_distribution(generator);
-        job.profit = profit_distribution(generator);
-        job.outsourcing_cost = outsourcing_cost_distribution(generator);
+        job.processing_time = std::round(processing_time_distribution(generator));
+        job.weight = std::round(weight_distribution(generator));
+        job.release_date = std::round(release_date_distribution(generator));
+        job.profit = std::round(profit_distribution(generator));
+        job.outsourcing_cost = std::round(outsourcing_cost_distribution(generator));
 
         std::uniform_real_distribution<double> deadline_distribution(0,t_n_jobs * t_D);
 
-        job.deadline = job.release_date + job.processing_time + deadline_distribution(generator);
+        job.deadline = std::round(job.release_date + job.processing_time + deadline_distribution(generator));
 
     }
 

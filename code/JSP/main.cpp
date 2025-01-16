@@ -24,6 +24,8 @@ int main(int t_argc, const char** t_argv) {
 
     std::cout << "Parsed " << filename << "." << std::endl;
 
+    std::cout << instance << std::endl;
+
     JobSchedulingProblem problem(instance, Gamma);
 
     ColumnAndConstraintGeneration ccg(problem, 10800);

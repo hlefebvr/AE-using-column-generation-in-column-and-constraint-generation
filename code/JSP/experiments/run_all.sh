@@ -19,10 +19,10 @@ do
   for GAMMA in 3 4
   do
 
-    for STD_PHASE_TIME_LIMIT in 18000 # 120 60
+    for STD_PHASE_TIME_LIMIT in 10800 # 120 60
     do
 
-      for WITH_HEURISTIC in true # false true
+      for WITH_HEURISTIC in 1 # false true
       do
 
           ARGS="$PROJECT_DIRECTORY/$EXPERIMENTS_DIRECTORY/run_one.sh $PROJECT_DIRECTORY/$BUILD_DIRECTORY/$EXECUTABLE $FILE $STD_PHASE_TIME_LIMIT $GAMMA $WITH_HEURISTIC"

@@ -45,7 +45,7 @@ Solution::Primal JobSchedulingProblem::compute_initial_scenario() {
 }
 
 void JobSchedulingProblem::set_default_optimizer(Model &t_master) {
-    t_master.use(create_gurobi().with_logs(true));
+    t_master.use(create_gurobi().with_logs(false));
 }
 
 void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
@@ -106,6 +106,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     };
 
     auto y = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
+    auto z = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "z");
     auto U = idol::Var::make_vector(m_env, Dim<1>(n_jobs), 0, 1, Binary, "U");
     auto t = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
@@ -120,6 +121,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
 
             for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
                 y[k].set(var_annotation, t_iteration);
+                z[k].set(var_annotation, t_iteration);
                 t[k].set(var_annotation, t_iteration);
             }
 
@@ -132,6 +134,7 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     }
 
     t_master.add_vector<Var, 1>(y);
+    t_master.add_vector<Var, 1>(z);
     t_master.add_vector<Var, 1>(U);
     t_master.add_vector<Var, 1>(t);
 
@@ -167,12 +170,10 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        double p_k = job_occurrence.parent->processing_time;
-        if (is_attacked(job_occurrence.parent->index)) {
-            p_k += m_percentage_increase * job_occurrence.parent->processing_time;
-        }
+        const double p_k = job_occurrence.parent->processing_time;
+        const double tau_k = m_percentage_increase * p_k;
 
-        Ctr c(m_env, t[k] - t[k-1] - p_k * y[k] >= 0);
+        Ctr c(m_env, t[k] - t[k-1] - p_k * y[k] - tau_k * z[k] >= 0);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -181,14 +182,27 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        double p_k = job_occurrence.parent->processing_time;
-        if (is_attacked(job_occurrence.parent->index)) {
-            p_k += m_percentage_increase * job_occurrence.parent->processing_time;
-        }
+        const double p_k = job_occurrence.parent->processing_time;
+        const double tau_k = m_percentage_increase * p_k;
 
-        Ctr c(m_env, t[k] - p_k * y[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
+        Ctr c(m_env, t[k] - p_k * y[k] - tau_k * z[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
+    }
+
+    // z <= y
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        Ctr c(m_env, z[k] <= y[k]);
+        c.set(m_annotation, t_iteration);
+        t_master.add(c);
+    }
+
+    for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
+        if (is_attacked(m_job_occurrences[k].parent->index)) {
+            Ctr c(m_env, z[k] >= y[k]);
+            c.set(m_annotation, t_iteration);
+            t_master.add(c);
+        }
     }
 
 }
