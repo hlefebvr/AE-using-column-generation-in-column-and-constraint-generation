@@ -30,14 +30,12 @@ JobSchedulingProblem::JobSchedulingProblem(const Instance &t_instance, double t_
 
 Model JobSchedulingProblem::create_master_problem() {
 
-    const auto n_jobs = m_instance.n_jobs();
-
     idol::Model result(m_env);
 
     result.add(m_theta);
     result.add_vector<idol::Var, 1>(m_x);
 
-    result.set_obj_expr(m_theta + idol_Sum(j, Range(n_jobs), m_instance.job(j).weight * m_x[j]));
+    result.set_obj_expr(m_theta);
 
     return result;
 }
@@ -47,9 +45,7 @@ Solution::Primal JobSchedulingProblem::compute_initial_scenario() {
 }
 
 void JobSchedulingProblem::set_default_optimizer(Model &t_master) {
-
-    t_master.use(create_gurobi());
-
+    t_master.use(create_gurobi().with_logs(true));
 }
 
 void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
@@ -65,7 +61,7 @@ void JobSchedulingProblem::set_large_scale_optimizer(Model &t_master) {
                                     )
                                     .with_default_sub_problem_spec(
                                             DantzigWolfe::SubProblem()
-                                                    .add_optimizer(create_gurobi().with_best_obj_stop(-1e-3))
+                                                    //.add_optimizer(create_gurobi().with_best_obj_stop(-1e-3))
                                                     .add_optimizer(create_gurobi())
                                                     .with_max_column_per_pricing(20)
                                                     .with_column_pool_clean_up(300, .66)
@@ -105,11 +101,12 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     const auto n_jobs = m_instance.n_jobs();
     const auto n_job_occurrences = m_job_occurrences.size();
 
-    const auto is_attacked = [&](unsigned int t_job_index) -> bool {
+    const auto is_attacked = [&](unsigned int t_job_index) {
         return t_worst_case_scenario.get(m_xi[t_job_index]) > .5;
     };
 
     auto y = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
+    auto U = idol::Var::make_vector(m_env, Dim<1>(n_jobs), 0, 1, Binary, "U");
     auto t = idol::Var::make_vector(m_env, Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
     if (t_master.optimizer().is<idol::Optimizers::BranchAndBound<DefaultNodeInfo>>()) {
@@ -126,11 +123,16 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
                 t[k].set(var_annotation, t_iteration);
             }
 
+            for (unsigned int j = 0 ; j < n_jobs ; ++j) {
+                U[j].set(var_annotation, t_iteration);
+            }
+
         }
 
     }
 
     t_master.add_vector<Var, 1>(y);
+    t_master.add_vector<Var, 1>(U);
     t_master.add_vector<Var, 1>(t);
 
     // Compute sum of y_k over G_j for each job j
@@ -140,16 +142,16 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     }
 
     // Objective function
-    t_master.add_ctr(m_theta >= idol_Sum(j, Range(n_jobs), - (m_instance.job(j).weight + m_instance.job(j).profit) * sum_y_k[j]));
+    t_master.add_ctr(m_theta >= idol_Sum(j, Range(n_jobs), m_instance.job(j).weight * U[j] - m_instance.job(j).profit * sum_y_k[j] ));
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        t_master.add_ctr(sum_y_k[j] <= m_x[j]);
+        t_master.add_ctr(sum_y_k[j] + U[j] == m_x[j]);
     }
 
     // GUB constraint
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        Ctr c(m_env, sum_y_k[j] <= 1);
+        Ctr c(m_env, sum_y_k[j] + U[j] <= 1);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -165,10 +167,12 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        const double factor = 1 + is_attacked(job_occurrence.parent->index) * m_percentage_increase;
-        const double processing_time = factor * job_occurrence.parent->processing_time;
+        double p_k = job_occurrence.parent->processing_time;
+        if (is_attacked(job_occurrence.parent->index)) {
+            p_k += m_percentage_increase * job_occurrence.parent->processing_time;
+        }
 
-        Ctr c(m_env, t[k] - t[k-1] - processing_time * y[k] >= 0);
+        Ctr c(m_env, t[k] - t[k-1] - p_k * y[k] >= 0);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -177,10 +181,12 @@ JobSchedulingProblem::add_scenario_to_master_problem(Model &t_master,
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        const double factor = 1 + is_attacked(job_occurrence.parent->index) * m_percentage_increase;
-        const double processing_time = factor * job_occurrence.parent->processing_time;
+        double p_k = job_occurrence.parent->processing_time;
+        if (is_attacked(job_occurrence.parent->index)) {
+            p_k += m_percentage_increase * job_occurrence.parent->processing_time;
+        }
 
-        Ctr c(m_env, t[k] - processing_time * y[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
+        Ctr c(m_env, t[k] - p_k * y[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
         c.set(m_annotation, t_iteration);
         t_master.add(c);
     }
@@ -206,6 +212,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
     auto y = separation.add_vars(Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
     auto z = separation.add_vars(Dim<1>(n_job_occurrences), 0, 1, Binary, "z");
+    auto U = separation.add_vars(Dim<1>(n_jobs), 0, 1, Binary, "U");
     auto t = separation.add_vars(Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
     // Compute sum of y_k over G_j for each job j
@@ -216,7 +223,8 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        separation.add_ctr(sum_y_k[j] <= std::round(t_first_stage_solution.get(m_x[j])));
+        const double x_val = std::round(t_first_stage_solution.get(m_x[j]));
+        separation.add_ctr(sum_y_k[j] + U[j] == x_val);
     }
 
     // Deadlines
@@ -224,7 +232,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
         separation.add_ctr(t[k] <= m_job_occurrences[k].deadline);
     }
 
-    // Packing
+    // Non-overlapping
     for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
         const auto& job_occurrence = m_job_occurrences[k];
         const double p_k = job_occurrence.parent->processing_time;
@@ -232,7 +240,7 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
         separation.add_ctr(t[k] - t[k-1] - p_k * y[k] - tau_k * z[k] >= 0);
     }
 
-    // Disjunctive + release
+    // Disjunctive + release dates
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
         const auto& job_occurrence = m_job_occurrences[k];
         const double r_k = job_occurrence.parent->release_date;
@@ -262,11 +270,10 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
 
         const auto& job = m_instance.job(j);
-        const auto cost = - (job.weight + job.profit);
 
-        rhs += cost * sum_y_k_constant[j];
-        rhs -= cost * (m_xi[j] * sum_y_k_constant[j]);
-        rhs += cost * (m_xi[j] * sum_z_k_constant[j]);
+        rhs += job.weight * !U[j];
+        rhs -= job.profit * (sum_y_k_constant[j] - m_xi[j] * sum_y_k_constant[j]);
+        rhs -= job.profit * (m_xi[j] * sum_z_k_constant[j]);
 
     }
 
@@ -307,6 +314,7 @@ double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_
     const auto n_job_occurrences = m_job_occurrences.size();
 
     auto y = model.add_vars(Dim<1>(n_job_occurrences), 0, 1, Binary, "y");
+    auto U = model.add_vars(Dim<1>(n_jobs), 0, 1, Binary, "U");
     auto t = model.add_vars(Dim<1>(n_job_occurrences), 0, Inf, Continuous, "t");
 
     // Compute sum of y_k over G_j for each job j
@@ -316,17 +324,12 @@ double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_
     }
 
     // Objective function
-    model.set_obj_expr(idol_Sum(j, Range(n_jobs), - (m_instance.job(j).weight + m_instance.job(j).profit) * sum_y_k[j]));
+    model.set_obj_expr(idol_Sum(j, Range(n_jobs), m_instance.job(j).weight * U[j] - m_instance.job(j).profit * sum_y_k[j]));
 
     // Linking constraints
     for (unsigned int j = 0 ; j < n_jobs ; ++j) {
         const double x_val = std::round(t_first_stage_solution.get(m_x[j]));
-        model.add_ctr(sum_y_k[j] <= x_val);
-    }
-
-    // GUB constraint
-    for (unsigned int j = 0 ; j < n_jobs ; ++j) {
-        model.add_ctr(sum_y_k[j] <= 1);
+        model.add_ctr(sum_y_k[j] + U[j] == x_val);
     }
 
     // Deadlines
@@ -338,9 +341,11 @@ double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_
     for (unsigned int k = 1 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        const double is_attacked = std::round(t_scenario.get(m_xi[job_occurrence.parent->index]));
-        const double factor = 1 + is_attacked * m_percentage_increase;
-        const double processing_time = factor * job_occurrence.parent->processing_time;
+        const bool is_attacked = t_scenario.get(m_xi[job_occurrence.parent->index]) >.5;
+        double processing_time = job_occurrence.parent->processing_time;
+        if (is_attacked) {
+            processing_time += m_percentage_increase * job_occurrence.parent->processing_time;
+        }
 
         model.add_ctr(t[k] - t[k-1] - processing_time * y[k] >= 0);
     }
@@ -349,9 +354,11 @@ double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_
     for (unsigned int k = 0 ; k < n_job_occurrences ; ++k) {
 
         const auto& job_occurrence = m_job_occurrences[k];
-        const double is_attacked = std::round(t_scenario.get(m_xi[job_occurrence.parent->index]));
-        const double factor = 1 + is_attacked * m_percentage_increase;
-        const double processing_time = factor * job_occurrence.parent->processing_time;
+        const bool is_attacked = t_scenario.get(m_xi[job_occurrence.parent->index]) >.5;
+        double processing_time = job_occurrence.parent->processing_time;
+        if (is_attacked) {
+            processing_time += m_percentage_increase * job_occurrence.parent->processing_time;
+        }
 
         model.add_ctr(t[k] - processing_time * y[k] - m_big_M[k] * y[k] >= job_occurrence.release_date - m_big_M[k]);
     }
@@ -362,4 +369,12 @@ double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_
     model.optimize();
 
     return model.get_best_obj();
+}
+
+double JobSchedulingProblem::sum_weights() const {
+    double result = 0.;
+    for (unsigned int j = 0, n_jobs = m_instance.n_jobs() ; j < n_jobs ; ++j) {
+        result += m_instance.job(j).weight;
+    }
+    return result + 1;
 }

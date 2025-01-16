@@ -52,6 +52,8 @@ protected:
 
     [[nodiscard]] Gurobi create_gurobi() const;
 
+    double sum_weights() const;
+
     double
     solve_second_stage(const Solution::Primal &t_first_stage_solution, const Solution::Primal &t_scenario) override;
 };

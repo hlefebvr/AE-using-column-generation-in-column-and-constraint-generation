@@ -19,7 +19,7 @@ do
   for GAMMA in 3 4
   do
 
-    for STD_PHASE_TIME_LIMIT in 0 18000 # 120 60
+    for STD_PHASE_TIME_LIMIT in 18000 # 120 60
     do
 
       for WITH_HEURISTIC in true # false true
@@ -33,7 +33,7 @@ do
           then
             sbatch $ARGS
           else
-            $ARGS
+            $ARGS || exit
           fi
 
           COUNTER=$(($COUNTER+1))

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include "ColumnAndConstraintGeneration.h"
+#include "idol/optimizers/mixed-integer-optimization/wrappers/Gurobi/Optimizers_Gurobi.h"
 
 ColumnAndConstraintGeneration::ColumnAndConstraintGeneration(ColumnAndConstraintGenerator &t_generator, double t_time_limit)
     : m_generator(t_generator), m_time_limit(t_time_limit) {
@@ -108,6 +109,7 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
 
         master_timer.start();
 
+        //master_problem.optimizer().as<Optimizers::Gurobi>().model().reset();
         master_problem.optimize();
 
         if (master_problem.get_status() != Optimal && master_problem.get_reason() == TimeLimit) {
@@ -155,7 +157,7 @@ idol::Solution::Primal ColumnAndConstraintGeneration::solve(double t_std_phase_t
 
         if (stopping_condition()) { break; }
 
-        //check_for_repeated_scenario(worst_case_scenario);
+        check_for_repeated_scenario(worst_case_scenario);
 
         m_generator.add_scenario_to_master_problem(master_problem, worst_case_scenario, iteration);
         m_scenarios.emplace_back(std::move(worst_case_scenario));
@@ -218,12 +220,14 @@ void ColumnAndConstraintGeneration::check_for_repeated_scenario(const Solution::
     const auto is_same = [](const Solution::Primal& t_lhs, const Solution::Primal& t_rhs) {
 
         for (const auto& [var, val] : t_lhs) {
+            if (var.name().front() != 'x') { continue; }
             if (std::abs(val - t_rhs.get(var)) > 1e-3) {
                 return false;
             }
         }
 
         for (const auto& [var, val] : t_rhs) {
+            if (var.name().front() != 'x') { continue; }
             if (std::abs(val - t_lhs.get(var)) > 1e-3) {
                 return false;
             }
