@@ -8,4 +8,6 @@ target_link_libraries(JSP2_solve PUBLIC idol_ccg)
 
 add_executable(JSP2_generate
         generate.cpp
+        ../JSP/Instance.cpp
+        ../JSP/Instance.h
 )
