@@ -7,10 +7,10 @@ else
   PROJECT_DIRECTORY=/home/henri/Research/AE-using-column-generation-in-column-and-constraint-generation/code/
 fi
 
-INSTANCE_DIRECTORY=JSP/data
+INSTANCE_DIRECTORY=JSP-2/data
 BUILD_DIRECTORY=cmake-build-debug
-EXECUTABLE=JSP/JSP_solve
-EXPERIMENTS_DIRECTORY=JSP/experiments
+EXECUTABLE=JSP-2/JSP2_solve
+EXPERIMENTS_DIRECTORY=JSP-2/experiments
 
 COUNTER=0
 
