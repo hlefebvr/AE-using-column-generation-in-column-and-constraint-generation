@@ -297,6 +297,9 @@ Solution::Primal JobSchedulingProblem::compute_worst_case_scenario(const Model &
 
 double JobSchedulingProblem::solve_second_stage(const Solution::Primal &t_first_stage_solution,
                                                 const Solution::Primal &t_scenario) {
+
+    return 0;
+
     Model model(m_env);
 
     const auto n_jobs = m_instance.n_jobs();
