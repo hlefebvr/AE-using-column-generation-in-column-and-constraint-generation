@@ -16,13 +16,13 @@ COUNTER=0
 
 for FILE in $PROJECT_DIRECTORY/$INSTANCE_DIRECTORY/*
 do
-  for GAMMA in 3 #4
+  for GAMMA in 3 6 9
   do
 
     for STD_PHASE_TIME_LIMIT in 10800 0 # 120 60
     do
 
-      for WITH_HEURISTIC in true # false true
+      for WITH_HEURISTIC in true false
       do
 
           ARGS="$PROJECT_DIRECTORY/$EXPERIMENTS_DIRECTORY/run_one.sh $PROJECT_DIRECTORY/$BUILD_DIRECTORY/$EXECUTABLE $FILE $STD_PHASE_TIME_LIMIT $GAMMA $WITH_HEURISTIC"
@@ -38,17 +38,12 @@ do
 
           COUNTER=$(($COUNTER+1))
 
-          if [ $STD_PHASE_TIME_LIMIT -eq 18000 ]
+          if [ $STD_PHASE_TIME_LIMIT -eq 10800 ]
           then
             break
           fi
 
         done
-
-        if [ $STD_PHASE_TIME_LIMIT -eq 18000 ]
-        then
-          break
-        fi
 
     done
   done
